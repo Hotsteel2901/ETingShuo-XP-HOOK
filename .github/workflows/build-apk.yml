@@ -11,6 +11,9 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
 
     steps:
       # =====================================================
@@ -105,49 +108,36 @@ jobs:
       - name: 找到未签名的APK
         id: find_apk
         run: |
-          APK_PATH=$(find app/build/outputs/apk -name "*release*.apk" -o -name "*unsigned*.apk" | head -1)
+          APK_PATH=$(find app/build/outputs/apk -name "*.apk" | head -1)
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_PATH"
           if [ -z "$APK_PATH" ]; then
-            echo "Warning: No APK found, will search later"
+            echo "ERROR: No APK found"
+            exit 1
           fi
 
-      - name: 签名APK
+      - name: 签名并对齐APK
         if: steps.find_apk.outputs.apk_path != ''
         run: |
-          # 使用apksigner或jarsigner签名
-          if command -v apksigner &> /dev/null; then
-            apksigner sign \
-              --ks debug.keystore \
-              --ks-pass pass:android \
-              --key-pass pass:android \
-              --ks-key-alias androiddebugkey \
-              --out ETingshuoVipHook-signed.apk \
-              ${{ steps.find_apk.outputs.apk_path }}
-          else
-            # 回退到jarsigner
-            jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
-              -keystore debug.keystore \
-              -storepass android \
-              -keypass android \
-              ${{ steps.find_apk.outputs.apk_path }} \
-              androiddebugkey
+          UNSIGNED_APK="${{ steps.find_apk.outputs.apk_path }}"
+          echo "Signing: $UNSIGNED_APK"
 
-            # 重命名为最终输出
-            cp ${{ steps.find_apk.outputs.apk_path }} ETingshuoVipHook-signed.apk
-          fi
+          # 先对齐
+          $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 "$UNSIGNED_APK" ETingshuoVipHook-aligned.apk
 
-      - name: 对齐APK (zipalign)
-        run: |
-          if [ -f "ETingshuoVipHook-signed.apk" ]; then
-            if command -v zipalign &> /dev/null; then
-              zipalign -v 4 ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk
-            else
-              # 没有zipalign，使用SDK中的
-              $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk || \
-                cp ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk
-            fi
-          fi
+          # 再签名
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+            --ks debug.keystore \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --ks-key-alias androiddebugkey \
+            --out ETingshuoVipHook-final.apk \
+            ETingshuoVipHook-aligned.apk
+
+          # 验证签名
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify ETingshuoVipHook-final.apk
+
+          ls -lh ETingshuoVipHook-final.apk
 
       # =====================================================
       # 6. 上传Artifact
