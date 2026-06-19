@@ -82,6 +82,7 @@ jobs:
       # =====================================================
       - name: 编译Release APK
         run: |
+          set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee build.log
           grep -E "(FAILURE|BUILD|What went wrong|Caused by|Execution failed|> Could not|> Failed|> java\.lang|> org\.gradle)" build.log | tail -50 || true
 

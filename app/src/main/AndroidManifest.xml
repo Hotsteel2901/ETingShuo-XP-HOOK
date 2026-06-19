@@ -4,8 +4,7 @@
 
     <!-- Xposed模块声明 -->
     <application
-        android:label="E听说VIP Hook"
-        android:icon="@mipmap/ic_launcher">
+        android:label="E听说VIP Hook">
 
         <!-- 告诉Xposed框架这是一个模块 -->
         <meta-data
