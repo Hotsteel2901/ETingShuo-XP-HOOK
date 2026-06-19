@@ -63,34 +63,34 @@ jobs:
             "cmdline-tools;latest"
 
       # =====================================================
-# 3. 下载Xposed API
-# =====================================================
-- name: 创建libs目录
-  run: |
-    mkdir -p app/libs
+      # 3. 下载Xposed API
+      # =====================================================
+      - name: 创建libs目录
+        run: |
+          mkdir -p app/libs
 
-- name: 下载XposedBridge API (主源)
-  run: |
-    wget -q https://api.xposed.info/download/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || echo "主源下载失败"
+      - name: 下载XposedBridge API (主源)
+        run: |
+          wget -q https://api.xposed.info/download/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || echo "主源下载失败"
 
-- name: 下载XposedBridge API (备用源 - GitHub)
-  if: failure()
-  run: |
-    # 尝试从GitHub镜像下载
-    wget -q https://github.com/rovo89/XposedBridgeApi/raw/54/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || \
-    wget -q https://raw.githubusercontent.com/rovo89/XposedBridgeApi/master/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar
+      - name: 下载XposedBridge API (备用源 - GitHub)
+        if: failure()
+        run: |
+          # 尝试从GitHub镜像下载
+          wget -q https://github.com/rovo89/XposedBridgeApi/raw/54/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || \
+          wget -q https://raw.githubusercontent.com/rovo89/XposedBridgeApi/master/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar
 
-- name: 验证Xposed API文件
-  run: |
-    if [ ! -f "app/libs/XposedBridgeApi-54.jar" ]; then
-      echo "ERROR: XposedBridgeApi-54.jar 下载失败"
-      echo "尝试使用仓库中的备用文件..."
-      # 如果仓库中有备用文件，复制过来
-      # cp assets/XposedBridgeApi-54.jar app/libs/XposedBridgeApi-54.jar || true
-      exit 1
-    fi
-    ls -lh app/libs/
-    file app/libs/XposedBridgeApi-54.jar
+      - name: 验证Xposed API文件
+        run: |
+          if [ ! -f "app/libs/XposedBridgeApi-54.jar" ]; then
+            echo "ERROR: XposedBridgeApi-54.jar 下载失败"
+            echo "尝试使用仓库中的备用文件..."
+            # 如果仓库中有备用文件，复制过来
+            # cp assets/XposedBridgeApi-54.jar app/libs/XposedBridgeApi-54.jar || true
+            exit 1
+          fi
+          ls -lh app/libs/
+          file app/libs/XposedBridgeApi-54.jar
 
       # =====================================================
       # 4. 编译APK
