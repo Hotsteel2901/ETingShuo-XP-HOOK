@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- NPatch / LSPatch 需要的scope声明: 指定模块作用的目标应用包名 -->
+    <string-array name="xposed_scope">
+        <item>com.ets100.secondary</item>
+    </string-array>
+</resources>

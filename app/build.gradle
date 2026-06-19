@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.etingshuo.vip.hook'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.etingshuo.vip.hook"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    // 不需要lint检查
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    // ============ Xposed API ============
+    // 方式1: compileOnly引用本地jar (推荐，确保不打包进APK)
+    compileOnly files('libs/XposedBridgeApi-54.jar')
+
+    // 方式2: 从Maven仓库引用 (备选)
+    // compileOnly 'de.robv.android.xposed:api:82'
+
+    // 注意: Xposed API必须是 compileOnly，不能是 implementation
+    // 因为运行时由框架提供，打包进去会冲突
+}
