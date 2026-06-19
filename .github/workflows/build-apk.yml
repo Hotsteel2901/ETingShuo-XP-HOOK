@@ -34,15 +34,15 @@ jobs:
           # 创建SDK目录
           export ANDROID_HOME=$HOME/android-sdk
           mkdir -p $ANDROID_HOME/cmdline-tools
-          
+
           # 下载最新版命令行工具
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip
-          
+
           # 安装到指定位置
           mkdir -p $ANDROID_HOME/cmdline-tools/latest
           mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ || true
-          
+
           # 设置环境变量
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
@@ -63,45 +63,22 @@ jobs:
             "cmdline-tools;latest"
 
       # =====================================================
-      # 3. 下载Xposed API
+      # 3. 准备Gradle Wrapper
       # =====================================================
-      - name: 创建libs目录
+      - name: 确保Gradle Wrapper存在
         run: |
-          mkdir -p app/libs
-
-      - name: 下载XposedBridge API (主源)
-        run: |
-          wget -q https://api.xposed.info/download/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || echo "主源下载失败"
-
-      - name: 下载XposedBridge API (备用源 - GitHub)
-        if: failure()
-        run: |
-          # 尝试从GitHub镜像下载
-          wget -q https://github.com/rovo89/XposedBridgeApi/raw/54/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar || \
-          wget -q https://raw.githubusercontent.com/rovo89/XposedBridgeApi/master/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar
-
-      - name: 验证Xposed API文件
-        run: |
-          if [ ! -f "app/libs/XposedBridgeApi-54.jar" ]; then
-            echo "ERROR: XposedBridgeApi-54.jar 下载失败"
-            echo "尝试使用仓库中的备用文件..."
-            # 如果仓库中有备用文件，复制过来
-            # cp assets/XposedBridgeApi-54.jar app/libs/XposedBridgeApi-54.jar || true
-            exit 1
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ] || [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "gradle-wrapper.jar 缺失或为空，正在生成..."
+            gradle wrapper --gradle-version 8.1 --no-daemon
           fi
-          ls -lh app/libs/
-          file app/libs/XposedBridgeApi-54.jar
+          chmod +x gradlew
 
       # =====================================================
       # 4. 编译APK
       # =====================================================
-      - name: 添加gradle执行权限
-        run: chmod +x gradlew 2>/dev/null || true
-
       - name: 编译Release APK
         run: |
-          ./gradlew assembleRelease --stacktrace || \
-          gradle assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: 查找编译产物
         run: |
@@ -153,7 +130,7 @@ jobs:
               -keypass android \
               ${{ steps.find_apk.outputs.apk_path }} \
               androiddebugkey
-            
+
             # 重命名为最终输出
             cp ${{ steps.find_apk.outputs.apk_path }} ETingshuoVipHook-signed.apk
           fi
@@ -201,15 +178,15 @@ jobs:
           name: Release v${{ github.run_number }}
           body: |
             ## E听说中学 VIP Hook 模块
-            
+
             ### 安装方式
             - **LSPosed (Root)**: 直接安装APK → 在LSPosed中勾选 `com.ets100.secondary`
             - **NPatch (免Root)**: 使用NPatch修补目标应用后嵌入本模块
-            
+
             ### 版本信息
             - 构建时间: ${{ github.event.head_commit.timestamp }}
             - Commit: ${{ github.sha }}
-            
+
             ### 下载
             - [ETingshuoVipHook-final.apk](https://github.com/${{ github.repository }}/releases/download/v${{ github.run_number }}/ETingshuoVipHook-final.apk)
           files: |

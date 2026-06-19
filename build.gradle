@@ -9,9 +9,5 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// 注意: allprojects 中的 repositories 已移到 settings.gradle 的 dependencyResolutionManagement 中
+// 不再需要在 build.gradle 中重复声明
