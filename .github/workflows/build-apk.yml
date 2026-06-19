@@ -1,0 +1,199 @@
+name: Build Xposed Module APK
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # =====================================================
+      # 1. 环境准备
+      # =====================================================
+      - name: Checkout代码
+        uses: actions/checkout@v4
+
+      - name: 设置JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # =====================================================
+      # 2. 安装Android SDK
+      # =====================================================
+      - name: 安装Android SDK命令行工具
+        run: |
+          # 创建SDK目录
+          export ANDROID_HOME=$HOME/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          
+          # 下载最新版命令行工具
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          
+          # 安装到指定位置
+          mkdir -p $ANDROID_HOME/cmdline-tools/latest
+          mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ || true
+          
+          # 设置环境变量
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+      - name: 接受Android SDK许可证
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager --update
+
+      - name: 安装Android SDK组件
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "cmdline-tools;latest"
+
+      # =====================================================
+      # 3. 下载Xposed API
+      # =====================================================
+      - name: 下载XposedBridge API
+        run: |
+          mkdir -p app/libs
+          wget -q https://api.xposed.info/download/XposedBridgeApi-54.jar -O app/libs/XposedBridgeApi-54.jar
+          ls -lh app/libs/
+
+      # =====================================================
+      # 4. 编译APK
+      # =====================================================
+      - name: 添加gradle执行权限
+        run: chmod +x gradlew 2>/dev/null || true
+
+      - name: 编译Release APK
+        run: |
+          ./gradlew assembleRelease --stacktrace || \
+          gradle assembleRelease --stacktrace
+
+      - name: 查找编译产物
+        run: |
+          find . -name "*.apk" -type f
+          ls -lah app/build/outputs/apk/ 2>/dev/null || echo "APK directory not found"
+
+      # =====================================================
+      # 5. 签名APK (使用debug key)
+      # =====================================================
+      - name: 生成Debug签名密钥
+        run: |
+          keytool -genkey -v \
+            -keystore debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: 找到未签名的APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk -name "*release*.apk" -o -name "*unsigned*.apk" | head -1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+          if [ -z "$APK_PATH" ]; then
+            echo "Warning: No APK found, will search later"
+          fi
+
+      - name: 签名APK
+        if: steps.find_apk.outputs.apk_path != ''
+        run: |
+          # 使用apksigner或jarsigner签名
+          if command -v apksigner &> /dev/null; then
+            apksigner sign \
+              --ks debug.keystore \
+              --ks-pass pass:android \
+              --key-pass pass:android \
+              --ks-key-alias androiddebugkey \
+              --out ETingshuoVipHook-signed.apk \
+              ${{ steps.find_apk.outputs.apk_path }}
+          else
+            # 回退到jarsigner
+            jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
+              -keystore debug.keystore \
+              -storepass android \
+              -keypass android \
+              ${{ steps.find_apk.outputs.apk_path }} \
+              androiddebugkey
+            
+            # 重命名为最终输出
+            cp ${{ steps.find_apk.outputs.apk_path }} ETingshuoVipHook-signed.apk
+          fi
+
+      - name: 对齐APK (zipalign)
+        run: |
+          if [ -f "ETingshuoVipHook-signed.apk" ]; then
+            if command -v zipalign &> /dev/null; then
+              zipalign -v 4 ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk
+            else
+              # 没有zipalign，使用SDK中的
+              $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk || \
+                cp ETingshuoVipHook-signed.apk ETingshuoVipHook-final.apk
+            fi
+          fi
+
+      # =====================================================
+      # 6. 上传Artifact
+      # =====================================================
+      - name: 上传APK (Release/未签名)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ETingshuoVipHook-unsigned
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/unsigned/*.apk
+          retention-days: 30
+
+      - name: 上传APK (已签名)
+        if: hashFiles('ETingshuoVipHook-final.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ETingshuoVipHook-signed
+          path: ETingshuoVipHook-final.apk
+          retention-days: 30
+
+      # =====================================================
+      # 7. 创建Release (可选)
+      # =====================================================
+      - name: 创建Release (仅main分支)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: |
+            ## E听说中学 VIP Hook 模块
+            
+            ### 安装方式
+            - **LSPosed (Root)**: 直接安装APK → 在LSPosed中勾选 `com.ets100.secondary`
+            - **NPatch (免Root)**: 使用NPatch修补目标应用后嵌入本模块
+            
+            ### 版本信息
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - Commit: ${{ github.sha }}
+            
+            ### 下载
+            - [ETingshuoVipHook-final.apk](https://github.com/${{ github.repository }}/releases/download/v${{ github.run_number }}/ETingshuoVipHook-final.apk)
+          files: |
+            ETingshuoVipHook-final.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
