@@ -1,5 +1,8 @@
 package com.etingshuo.vip.hook;
 
+import android.view.View;
+import android.widget.TextView;
+
 import java.util.Calendar;
 
 import de.robv.android.xposed.XC_MethodHook;
