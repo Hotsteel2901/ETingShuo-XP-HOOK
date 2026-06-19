@@ -31,7 +31,7 @@ jobs:
       # =====================================================
       - name: 安装Android SDK命令行工具
         run: |
-          # 创建SDK目录
+          # 使用与 Runner 预装 SDK 相同的路径，避免 ANDROID_HOME 与 ANDROID_SDK_ROOT 冲突
           export ANDROID_HOME=$HOME/android-sdk
           mkdir -p $ANDROID_HOME/cmdline-tools
 
@@ -43,8 +43,9 @@ jobs:
           mkdir -p $ANDROID_HOME/cmdline-tools/latest
           mv cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ || true
 
-          # 设置环境变量
+          # 设置环境变量（同时设置 ANDROID_HOME 和 ANDROID_SDK_ROOT 为相同路径）
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
